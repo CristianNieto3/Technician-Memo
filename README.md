@@ -34,7 +34,7 @@ A full-stack voice memo web app built for field technicians to quickly record sp
 1. Clone the Repo
 
   bash
-git clone https://github.com/your-username/Technician-Memo.git
+git clone https://github.com/CristianNieto3/Technician-Memo.git
 cd Technician-Memo 
 
 2. Install dependencies
