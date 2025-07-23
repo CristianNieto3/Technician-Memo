@@ -37,38 +37,50 @@ A full-stack voice memo web app built for field technicians to quickly record sp
 git clone https://github.com/your-username/Technician-Memo.git
 cd Technician-Memo 
 
-2. Install backend dependencies
-npm install
+2. Install dependencies
+   
+npm install 
+npm install dotenv
+pip install elevenlabs
 
-3. Create .env file and paste this into the file
+
+4. Create .env file and paste this into the file
 
 OPENAI_API_KEY="your-openai-api-key-here"
+
 ELEVEN_API_KEY="your-elevenlabs-api-key-here"
 
 4. In the terminal run
+   
 node server.js
 
-5. Select mic device and start testing!
+6. Select mic device and start testing!
 
 
 EXTRA:
 
 GET /purchase-orders
+
 Returns all saved POs.
 
 GET /purchase-orders/:id
+
 Fetch a PO by ID.
 
 DELETE /purchase-orders/:id
+
 Delete a PO by ID.
 
 GET /export/purchase-orders.csv
+
 Download all POs as CSV.
 
 GET /costs
+
 Returns cost summary and daily breakdown.   -> Work in Progress
 
 GET /health
+
 Returns a health check of backend + services.
 
 
