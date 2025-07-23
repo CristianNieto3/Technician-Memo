@@ -39,8 +39,10 @@ cd Technician-Memo
 
 2. Install dependencies
    
-npm install 
+npm install   
+
 npm install dotenv
+
 pip install elevenlabs
 
 
