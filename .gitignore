@@ -1,0 +1,3 @@
+# Ignore .env files containing sensitive information like API keys
+.env
+node_modules

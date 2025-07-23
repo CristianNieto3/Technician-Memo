@@ -1,0 +1,179 @@
+<!DOCTYPE html>
+<html lang="en">
+  <head>
+    <meta charset="UTF-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+    <title>Technician Voice Memo</title>
+    <script src="https://cdn.tailwindcss.com"></script>
+  </head>
+  <body class="bg-gray-100 min-h-screen flex items-center justify-center p-4">
+    <div class="w-full max-w-lg bg-white shadow-xl rounded-2xl p-8 space-y-6">
+      <h1 class="text-3xl font-bold text-center text-gray-800">🎙️ Technician Voice Memo </h1>
+      <div class="mb-4">
+        <label for="micSelect" class="block text-gray-700 font-medium mb-1">🎧 Select Microphone:</label>
+        <select id="micSelect" class="w-full px-3 py-2 rounded-lg border border-gray-300 focus:outline-none focus:ring focus:border-blue-300">
+          <option>Loading...</option>
+        </select>
+      </div>
+      
+
+      <div class="flex gap-4">
+        <button
+          id="startBtn"
+          class="w-1/2 py-4 bg-green-500 hover:bg-green-600 text-white text-lg font-semibold rounded-xl shadow-md transition"
+        >
+          ▶️ Start
+        </button>
+        <button
+          id="stopBtn"
+          class="w-1/2 py-4 bg-red-500 hover:bg-red-600 text-white text-lg font-semibold rounded-xl shadow-md transition"
+          disabled
+        >
+          ⏹️ Stop
+        </button>
+      </div>
+
+      <p id="status" class="text-center text-gray-600 text-lg italic">Ready to record</p>
+
+      <!-- Original Transcription Box -->
+      <div class="bg-gray-50 border border-gray-200 rounded-xl p-4">
+        <h2 class="text-gray-700 font-semibold mb-2">📋 Original Transcription</h2>
+        <p id="lastMemo" class="text-gray-800 text-base italic">None yet.</p>
+        <span id="languageIndicator" class="hidden inline-block mt-2 px-2 py-1 text-xs font-medium rounded-full"></span>
+      </div>
+
+      <!-- Translation Box  -->
+      <div id="translationBox" class="bg-blue-50 border border-blue-200 rounded-xl p-4 hidden">
+        <h2 class="text-blue-700 font-semibold mb-2 flex items-center">
+          🌐 English Translation 
+          <span class="ml-2 px-2 py-1 text-xs bg-blue-100 text-blue-600 rounded-full">Saved to memos</span>
+        </h2>
+        <p id="translatedMemo" class="text-blue-800 text-base italic"></p>
+      </div>
+    </div>
+
+    <script>
+      let mediaRecorder;
+      let audioChunks = [];
+
+      const startBtn = document.getElementById("startBtn");
+      const stopBtn = document.getElementById("stopBtn");
+      const statusText = document.getElementById("status");
+      const lastMemo = document.getElementById("lastMemo");
+      const translationBox = document.getElementById("translationBox");
+      const translatedMemo = document.getElementById("translatedMemo");
+      const languageIndicator = document.getElementById("languageIndicator");
+      const micSelect = document.getElementById("micSelect");
+
+      async function populateMicDropdown() {
+        const devices = await navigator.mediaDevices.enumerateDevices();
+        const mics = devices.filter(d => d.kind === "audioinput");
+
+        micSelect.innerHTML = "";
+        mics.forEach(mic => {
+          const option = document.createElement("option");
+          option.value = mic.deviceId;
+          option.textContent = mic.label || `Microphone ${micSelect.length + 1}`;
+          micSelect.appendChild(option);
+        });
+
+        // Restore last selected mic
+        const savedMicId = localStorage.getItem("preferredMicId");
+        if (savedMicId) {
+          micSelect.value = savedMicId;
+        }
+
+        micSelect.addEventListener("change", () => {
+          localStorage.setItem("preferredMicId", micSelect.value);
+        });
+      }
+
+      // Call this when page loads
+      navigator.mediaDevices.getUserMedia({ audio: true }).then(() => {
+        populateMicDropdown();
+      });
+
+      async function startRecording() {
+        const selectedMicId = micSelect.value;
+        const stream = await navigator.mediaDevices.getUserMedia({
+          audio: { deviceId: selectedMicId ? { exact: selectedMicId } : undefined }
+        });
+
+        mediaRecorder = new MediaRecorder(stream, { mimeType: "audio/webm;codecs=opus" });
+
+        mediaRecorder.ondataavailable = (e) => audioChunks.push(e.data);
+
+        mediaRecorder.onstop = async () => {
+          const blob = new Blob(audioChunks, { type: "audio/webm" });
+          audioChunks = [];
+
+          const formData = new FormData();
+          formData.append("audio", blob, "memo.webm");
+
+          statusText.textContent = "Transcribing...";
+
+          try {
+            const response = await fetch("/upload", {
+              method: "POST",
+              body: formData,
+            });
+
+            const result = await response.json();
+            
+            if (result.transcription) {
+              // Show original transcription
+              lastMemo.textContent = result.transcription;
+              
+              // Update language indicator
+              if (result.wasSpanish) {
+                languageIndicator.textContent = "🇪🇸 Spanish";
+                languageIndicator.className = "inline-block mt-2 px-2 py-1 text-xs font-medium rounded-full bg-yellow-100 text-yellow-700";
+                languageIndicator.classList.remove("hidden");
+              } else {
+                languageIndicator.textContent = "🇺🇸 English";
+                languageIndicator.className = "inline-block mt-2 px-2 py-1 text-xs font-medium rounded-full bg-green-100 text-green-700";
+                languageIndicator.classList.remove("hidden");
+              }
+              
+              // Show/hide translation box
+              if (result.wasTranslated) {
+                translatedMemo.textContent = result.finalText;
+                translationBox.classList.remove("hidden");
+                statusText.textContent = "✅ Transcribed & Translated";
+              } else {
+                translationBox.classList.add("hidden");
+                statusText.textContent = "✅ Done";
+              }
+              
+            } else {
+              lastMemo.textContent = "No speech detected.";
+              languageIndicator.classList.add("hidden");
+              translationBox.classList.add("hidden");
+              statusText.textContent = "⚠️ Try again";
+            }
+          } catch (error) {
+            console.error("Upload failed:", error);
+            lastMemo.textContent = "Upload failed. Please try again.";
+            languageIndicator.classList.add("hidden");
+            translationBox.classList.add("hidden");
+            statusText.textContent = "❌ Error";
+          }
+        };
+
+        mediaRecorder.start();
+        statusText.textContent = "🔴 Recording...";
+        startBtn.disabled = true;
+        stopBtn.disabled = false;
+      }
+
+      function stopRecording() {
+        mediaRecorder.stop();
+        startBtn.disabled = false;
+        stopBtn.disabled = true;
+      }
+
+      startBtn.addEventListener("click", startRecording);
+      stopBtn.addEventListener("click", stopRecording);
+    </script>
+  </body>
+</html>
