@@ -43,6 +43,8 @@ npm install
 
 npm install dotenv
 
+npm install sqlite
+
 pip install elevenlabs
 
 
